@@ -68,6 +68,12 @@ public sealed class OculusDebugToolService(
 
             try
             {
+                if (preset.Settings.VisibleHud is not null and not VisibleHudMode.None)
+                {
+                    logger.Info(
+                        "HUD overlays require a running PCVR application using the Meta/Oculus compositor; SteamVR-only rendering may not display them.");
+                }
+
                 commandFile = await GenerateCommandFileAsync(preset, cancellationToken);
                 var startInfo = BuildStartInfo(commandFile);
                 using var process = Process.Start(startInfo);

@@ -9,6 +9,27 @@ successfully.
 
 ## Completed
 
+- Activated Performance, Stereo Debug, and Layer HUD command generation.
+- Replaced independent HUD options with one active Visible HUD selector and a
+  contextual mode selector.
+- Added explicit HUD reset commands so presets cannot leave stale HUD families
+  active.
+- Added startup migration that configures the selected default preset to disable
+  HUD overlays.
+- Added legacy HUD JSON inference and human-readable HUD mode labels.
+- Added Common, Oculus Link, Service, HUD, and Advanced settings tabs.
+- Added all requested Service fields, including a separate PC Asynchronous
+  Spacewarp property.
+- Added distortion curvature, video codec, sliced encoding, and dynamic bitrate
+  Link fields.
+- Added Visible, Performance, Stereo Debug, and Layer HUD fields.
+- Added optional Lost Frame Capture storage under Advanced.
+- Added confirmed installed-CLI mappings for pixels per display pixel, mipmap
+  generation, mip bias, FOV stencil, adaptive GPU scale, frame drop indicator,
+  and pose injection.
+- Marked version-dependent settings as stored only instead of generating
+  unverified commands.
+- Fixed Browse availability and launch type/target consistency validation.
 - Fixed enum ComboBox reload behavior that caused persisted Local Dimming values
   to display as Default after relaunch.
 - Updated Apply Preset and Apply + Launch to save and validate current editor
@@ -35,7 +56,7 @@ successfully.
 ## Verification
 
 - Release build succeeds with zero warnings.
-- All 22 automated tests pass.
+- All 46 automated tests pass.
 - Local Dimming was changed to Disabled through the real WinForms UI, saved,
   closed, reopened, and verified as Disabled in both JSON and the relaunched UI.
 - Formatting verification passes.
@@ -57,6 +78,11 @@ C:\Program Files\Meta Horizon\Support\oculus-diagnostics\OculusDebugToolCLI.exe
   names may vary between Meta runtime versions and need live confirmation.
 - Game launch and external process detection should be tested with an installed
   game.
+- Stored-only fields require confirmed CLI setters before they can participate
+  in Apply. They currently save, load, duplicate, and round-trip through JSON.
+- HUD overlays require a running PCVR application using the Meta/Oculus
+  compositor through wired Link or Air Link. They are not standalone Quest
+  overlays.
 
 ## Run
 

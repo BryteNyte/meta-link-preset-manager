@@ -53,4 +53,86 @@ public sealed class PresetValidatorTests
 
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void ValidateForApply_RejectsPresetWithOnlyStoredSettings()
+    {
+        var preset = new OculusPreset
+        {
+            Name = "Stored only",
+            Settings = new OculusSettings
+            {
+                VideoCodec = VideoCodecMode.H265
+            }
+        };
+
+        var errors = PresetValidator.ValidateForApply(
+            preset,
+            typeof(PresetValidator).Assembly.Location);
+
+        Assert.Contains(
+            "The preset only contains settings whose installed-version CLI commands have not been verified.",
+            errors);
+    }
+
+    [Theory]
+    [InlineData(VisibleHudMode.Performance)]
+    [InlineData(VisibleHudMode.StereoDebug)]
+    [InlineData(VisibleHudMode.Layer)]
+    public void ValidateForSave_RejectsHudWithoutRequiredMode(
+        VisibleHudMode visibleHud)
+    {
+        var preset = new OculusPreset
+        {
+            Name = "Invalid HUD",
+            ApplyAutomaticallyWhenProcessStarts = false,
+            Settings = new OculusSettings
+            {
+                VisibleHud = visibleHud
+            }
+        };
+
+        var errors = PresetValidator.ValidateForSave(preset, []);
+
+        Assert.Single(errors);
+        Assert.Contains("mode is required", errors[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ValidateForApply_AcceptsPerformanceHud()
+    {
+        var preset = new OculusPreset
+        {
+            Name = "Performance HUD",
+            Settings = new OculusSettings
+            {
+                VisibleHud = VisibleHudMode.Performance,
+                PerformanceHud = PerformanceHudMode.PerformanceSummary
+            }
+        };
+
+        var errors = PresetValidator.ValidateForApply(
+            preset,
+            typeof(PresetValidator).Assembly.Location);
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateForSave_RejectsInconsistentLaunchConfiguration()
+    {
+        var preset = new OculusPreset
+        {
+            Name = "Inconsistent",
+            ApplyAutomaticallyWhenProcessStarts = false,
+            LaunchType = LaunchType.None,
+            LaunchTarget = "steam://rungameid/123"
+        };
+
+        var errors = PresetValidator.ValidateForSave(preset, []);
+
+        Assert.Contains(
+            "Launch target must be empty when launch type is None.",
+            errors);
+    }
 }

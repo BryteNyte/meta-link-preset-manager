@@ -44,10 +44,31 @@ public sealed class OculusSettings
     public decimal? FovTanMultiplierHorizontal { get; set; }
     public decimal? FovTanMultiplierVertical { get; set; }
     public AswMode? AswMode { get; set; }
+    public decimal? PixelsPerDisplayPixelOverride { get; set; }
+    public bool? ForceMipmapGenerationOnAllLayers { get; set; }
+    public bool? OffsetMipmapBiasOnAllLayers { get; set; }
+    public bool? UseFovStencil { get; set; }
+    public bool? BypassProximitySensorCheck { get; set; }
+    public bool? AdaptiveGpuPerformanceScale { get; set; }
+    public PcAswMode? PcAsynchronousSpacewarp { get; set; }
+    public bool? FrameDropIndicator { get; set; }
+    public DebugHmdType? DebugHmdType { get; set; }
+    public bool? PoseInjection { get; set; }
+    public DistortionCurvatureMode? DistortionCurvature { get; set; }
+    public VideoCodecMode? VideoCodec { get; set; }
+    public bool? SlicedEncoding { get; set; }
+    public bool? EncodeDynamicBitrate { get; set; }
+    public int? DynamicBitrateMax { get; set; }
+    public int? DynamicBitrateOffset { get; set; }
     public int? EncodeBitrateMbps { get; set; }
     public int? EncodeResolutionWidth { get; set; }
     public LinkSharpeningMode? LinkSharpening { get; set; }
     public LocalDimmingMode? LocalDimming { get; set; }
+    public VisibleHudMode? VisibleHud { get; set; }
+    public PerformanceHudMode? PerformanceHud { get; set; }
+    public StereoDebugHudMode? StereoDebugHud { get; set; }
+    public LayerHudMode? LayerHud { get; set; }
+    public bool? LostFrameCapture { get; set; }
 
     public OculusSettings Clone()
     {
@@ -56,10 +77,31 @@ public sealed class OculusSettings
             FovTanMultiplierHorizontal = FovTanMultiplierHorizontal,
             FovTanMultiplierVertical = FovTanMultiplierVertical,
             AswMode = AswMode,
+            PixelsPerDisplayPixelOverride = PixelsPerDisplayPixelOverride,
+            ForceMipmapGenerationOnAllLayers = ForceMipmapGenerationOnAllLayers,
+            OffsetMipmapBiasOnAllLayers = OffsetMipmapBiasOnAllLayers,
+            UseFovStencil = UseFovStencil,
+            BypassProximitySensorCheck = BypassProximitySensorCheck,
+            AdaptiveGpuPerformanceScale = AdaptiveGpuPerformanceScale,
+            PcAsynchronousSpacewarp = PcAsynchronousSpacewarp,
+            FrameDropIndicator = FrameDropIndicator,
+            DebugHmdType = DebugHmdType,
+            PoseInjection = PoseInjection,
+            DistortionCurvature = DistortionCurvature,
+            VideoCodec = VideoCodec,
+            SlicedEncoding = SlicedEncoding,
+            EncodeDynamicBitrate = EncodeDynamicBitrate,
+            DynamicBitrateMax = DynamicBitrateMax,
+            DynamicBitrateOffset = DynamicBitrateOffset,
             EncodeBitrateMbps = EncodeBitrateMbps,
             EncodeResolutionWidth = EncodeResolutionWidth,
             LinkSharpening = LinkSharpening,
-            LocalDimming = LocalDimming
+            LocalDimming = LocalDimming,
+            VisibleHud = VisibleHud,
+            PerformanceHud = PerformanceHud,
+            StereoDebugHud = StereoDebugHud,
+            LayerHud = LayerHud,
+            LostFrameCapture = LostFrameCapture
         };
     }
 
@@ -68,10 +110,50 @@ public sealed class OculusSettings
         return FovTanMultiplierHorizontal.HasValue
             || FovTanMultiplierVertical.HasValue
             || AswMode.HasValue
+            || PixelsPerDisplayPixelOverride.HasValue
+            || ForceMipmapGenerationOnAllLayers.HasValue
+            || OffsetMipmapBiasOnAllLayers.HasValue
+            || UseFovStencil.HasValue
+            || BypassProximitySensorCheck.HasValue
+            || AdaptiveGpuPerformanceScale.HasValue
+            || PcAsynchronousSpacewarp.HasValue
+            || FrameDropIndicator.HasValue
+            || DebugHmdType.HasValue
+            || PoseInjection.HasValue
+            || DistortionCurvature.HasValue
+            || VideoCodec.HasValue
+            || SlicedEncoding.HasValue
+            || EncodeDynamicBitrate.HasValue
+            || DynamicBitrateMax.HasValue
+            || DynamicBitrateOffset.HasValue
             || EncodeBitrateMbps.HasValue
             || EncodeResolutionWidth.HasValue
             || LinkSharpening.HasValue
-            || LocalDimming.HasValue;
+            || LocalDimming.HasValue
+            || VisibleHud.HasValue
+            || PerformanceHud.HasValue
+            || StereoDebugHud.HasValue
+            || LayerHud.HasValue
+            || LostFrameCapture.HasValue;
+    }
+
+    public bool HasCliApplicableValue()
+    {
+        return FovTanMultiplierHorizontal.HasValue
+            || FovTanMultiplierVertical.HasValue
+            || AswMode.HasValue
+            || PixelsPerDisplayPixelOverride.HasValue
+            || ForceMipmapGenerationOnAllLayers.HasValue
+            || OffsetMipmapBiasOnAllLayers.HasValue
+            || UseFovStencil.HasValue
+            || AdaptiveGpuPerformanceScale.HasValue
+            || FrameDropIndicator.HasValue
+            || PoseInjection.HasValue
+            || EncodeBitrateMbps.HasValue
+            || EncodeResolutionWidth.HasValue
+            || LinkSharpening.HasValue
+            || LocalDimming.HasValue
+            || VisibleHud.HasValue;
     }
 }
 
@@ -105,4 +187,72 @@ public enum LocalDimmingMode
     Default,
     Disabled,
     Enabled
+}
+
+public enum PcAswMode
+{
+    Auto,
+    Disabled,
+    Force45,
+    Force45WithAsw
+}
+
+public enum DebugHmdType
+{
+    None,
+    Rift,
+    RiftS,
+    Quest,
+    Quest2,
+    QuestPro,
+    Quest3
+}
+
+public enum DistortionCurvatureMode
+{
+    Default,
+    Low,
+    High
+}
+
+public enum VideoCodecMode
+{
+    Default,
+    H264,
+    H265,
+    Av1
+}
+
+public enum VisibleHudMode
+{
+    None,
+    Performance,
+    StereoDebug,
+    Layer
+}
+
+public enum PerformanceHudMode
+{
+    None,
+    PerformanceSummary,
+    LatencyTiming,
+    AppRenderTiming,
+    CompositorRenderTiming,
+    VersionInfo,
+    AswStats
+}
+
+public enum StereoDebugHudMode
+{
+    None,
+    Quad,
+    QuadWithCrosshair,
+    CrosshairAtInfinity
+}
+
+public enum LayerHudMode
+{
+    None,
+    LayerInfo,
+    ShowAllLayers
 }

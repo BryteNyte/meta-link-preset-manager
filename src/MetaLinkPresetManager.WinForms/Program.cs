@@ -20,6 +20,13 @@ internal static class Program
             var presetRepository = new JsonPresetRepository(paths);
             var settings = settingsRepository.LoadAsync().GetAwaiter().GetResult();
             var store = presetRepository.LoadAsync().GetAwaiter().GetResult();
+            if (PresetStoreMigration.EnsureDefaultHudDisabled(
+                    store,
+                    settings.DefaultPresetId))
+            {
+                presetRepository.SaveAsync(store).GetAwaiter().GetResult();
+                logger.Info("Configured the default preset to disable Oculus HUD overlays.");
+            }
             var commandBuilder = new OculusCommandFileBuilder();
             var debugToolService = new OculusDebugToolService(
                 settings,

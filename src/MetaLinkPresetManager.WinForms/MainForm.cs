@@ -20,21 +20,14 @@ public sealed class MainForm : Form
     private readonly TextBox _processName = new();
     private readonly ComboBox _launchType = new();
     private readonly TextBox _launchTarget = new();
+    private readonly Button _browseLaunchTarget = new()
+    {
+        Text = "Browse...",
+        Dock = DockStyle.Fill
+    };
     private readonly CheckBox _autoApply = new();
     private readonly CheckBox _restoreOnExit = new();
-    private readonly CheckBox _fovIncluded = new();
-    private readonly NumericUpDown _fovHorizontal = CreateDecimalInput(0, 2, 0.01m);
-    private readonly NumericUpDown _fovVertical = CreateDecimalInput(0, 2, 0.01m);
-    private readonly CheckBox _aswIncluded = new();
-    private readonly ComboBox _aswMode = CreateEnumCombo<AswMode>();
-    private readonly CheckBox _bitrateIncluded = new();
-    private readonly NumericUpDown _bitrate = CreateIntegerInput(0, 2000);
-    private readonly CheckBox _resolutionIncluded = new();
-    private readonly NumericUpDown _resolution = CreateIntegerInput(0, 10000);
-    private readonly CheckBox _sharpeningIncluded = new();
-    private readonly ComboBox _sharpening = CreateEnumCombo<LinkSharpeningMode>();
-    private readonly CheckBox _dimmingIncluded = new();
-    private readonly ComboBox _dimming = CreateEnumCombo<LocalDimmingMode>();
+    private readonly PresetSettingsControl _settingsEditor = new();
     private readonly Label _status = new();
     private readonly TextBox _log = new();
     private readonly List<Button> _actionButtons = [];
@@ -135,12 +128,12 @@ public sealed class MainForm : Form
             ColumnCount = 1
         };
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));
 
         outer.Controls.Add(BuildGeneralGroup(), 0, 0);
-        outer.Controls.Add(BuildSettingsGroup(), 0, 1);
+        outer.Controls.Add(_settingsEditor, 0, 1);
         outer.Controls.Add(BuildActionPanel(), 0, 2);
         outer.Controls.Add(BuildStatusPanel(), 0, 3);
         return outer;
@@ -178,9 +171,8 @@ public sealed class MainForm : Form
         _launchType.DropDownStyle = ComboBoxStyle.DropDownList;
         AddLabeledControl(layout, "Launch type", _launchType, 3);
         AddLabeledControl(layout, "Launch target", _launchTarget, 4);
-        var browseButton = new Button { Text = "Browse...", Dock = DockStyle.Fill };
-        browseButton.Click += BrowseLaunchTarget;
-        layout.Controls.Add(browseButton, 2, 4);
+        _browseLaunchTarget.Click += BrowseLaunchTarget;
+        layout.Controls.Add(_browseLaunchTarget, 2, 4);
 
         var options = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
         _autoApply.Text = "Apply automatically when process starts";
@@ -191,48 +183,6 @@ public sealed class MainForm : Form
         options.Controls.Add(_restoreOnExit);
         layout.Controls.Add(options, 1, 5);
         layout.SetColumnSpan(options, 2);
-
-        group.Controls.Add(layout);
-        return group;
-    }
-
-    private Control BuildSettingsGroup()
-    {
-        var group = new GroupBox
-        {
-            Text = "Oculus Link Settings",
-            Dock = DockStyle.Top,
-            AutoSize = true
-        };
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            Padding = new Padding(8),
-            AutoSize = true,
-            ColumnCount = 4,
-            RowCount = 6
-        };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-
-        _fovIncluded.Text = "FOV tangent multiplier";
-        layout.Controls.Add(_fovIncluded, 0, 0);
-        layout.Controls.Add(_fovHorizontal, 1, 0);
-        layout.Controls.Add(new Label
-        {
-            Text = "Vertical",
-            AutoSize = true,
-            Anchor = AnchorStyles.Left
-        }, 2, 0);
-        layout.Controls.Add(_fovVertical, 3, 0);
-
-        AddOptionalSetting(layout, _aswIncluded, "ASW mode", _aswMode, 1);
-        AddOptionalSetting(layout, _bitrateIncluded, "Encode bitrate Mbps", _bitrate, 2);
-        AddOptionalSetting(layout, _resolutionIncluded, "Encode resolution width", _resolution, 3);
-        AddOptionalSetting(layout, _sharpeningIncluded, "Link sharpening", _sharpening, 4);
-        AddOptionalSetting(layout, _dimmingIncluded, "Local dimming", _dimming, 5);
 
         group.Controls.Add(layout);
         return group;
@@ -284,12 +234,6 @@ public sealed class MainForm : Form
     {
         _presetList.SelectedIndexChanged += (_, _) => LoadSelectedPreset();
         _launchType.SelectedIndexChanged += (_, _) => UpdateLaunchTargetState();
-        _fovIncluded.CheckedChanged += (_, _) => UpdateOptionalControlStates();
-        _aswIncluded.CheckedChanged += (_, _) => UpdateOptionalControlStates();
-        _bitrateIncluded.CheckedChanged += (_, _) => UpdateOptionalControlStates();
-        _resolutionIncluded.CheckedChanged += (_, _) => UpdateOptionalControlStates();
-        _sharpeningIncluded.CheckedChanged += (_, _) => UpdateOptionalControlStates();
-        _dimmingIncluded.CheckedChanged += (_, _) => UpdateOptionalControlStates();
         _logger.LogWritten += LoggerOnLogWritten;
         _processWatcher.ProcessStarted += ProcessWatcherOnProcessStarted;
         _processWatcher.ProcessExited += ProcessWatcherOnProcessExited;
@@ -335,32 +279,7 @@ public sealed class MainForm : Form
         _autoApply.Checked = preset.ApplyAutomaticallyWhenProcessStarts;
         _restoreOnExit.Checked = preset.RestoreDefaultPresetOnExit;
 
-        SetNullableValue(
-            _fovIncluded,
-            preset.Settings.FovTanMultiplierHorizontal,
-            _fovHorizontal);
-        if (preset.Settings.FovTanMultiplierVertical.HasValue)
-        {
-            _fovVertical.Value = Clamp(
-                preset.Settings.FovTanMultiplierVertical.Value,
-                _fovVertical);
-        }
-        _aswIncluded.Checked = preset.Settings.AswMode.HasValue;
-        SelectEnumValue(_aswMode, preset.Settings.AswMode ?? AswMode.Auto);
-        SetNullableValue(_bitrateIncluded, preset.Settings.EncodeBitrateMbps, _bitrate);
-        SetNullableValue(
-            _resolutionIncluded,
-            preset.Settings.EncodeResolutionWidth,
-            _resolution);
-        _sharpeningIncluded.Checked = preset.Settings.LinkSharpening.HasValue;
-        SelectEnumValue(
-            _sharpening,
-            preset.Settings.LinkSharpening ?? LinkSharpeningMode.Default);
-        _dimmingIncluded.Checked = preset.Settings.LocalDimming.HasValue;
-        SelectEnumValue(
-            _dimming,
-            preset.Settings.LocalDimming ?? LocalDimmingMode.Default);
-        UpdateOptionalControlStates();
+        _settingsEditor.LoadSettings(preset.Settings);
         UpdateLaunchTargetState();
     }
 
@@ -374,22 +293,7 @@ public sealed class MainForm : Form
         preset.LaunchTarget = NullIfWhiteSpace(_launchTarget.Text);
         preset.ApplyAutomaticallyWhenProcessStarts = _autoApply.Checked;
         preset.RestoreDefaultPresetOnExit = _restoreOnExit.Checked;
-        preset.Settings.FovTanMultiplierHorizontal =
-            _fovIncluded.Checked ? _fovHorizontal.Value : null;
-        preset.Settings.FovTanMultiplierVertical =
-            _fovIncluded.Checked ? _fovVertical.Value : null;
-        preset.Settings.AswMode =
-            _aswIncluded.Checked ? (AswMode)_aswMode.SelectedItem! : null;
-        preset.Settings.EncodeBitrateMbps =
-            _bitrateIncluded.Checked ? (int)_bitrate.Value : null;
-        preset.Settings.EncodeResolutionWidth =
-            _resolutionIncluded.Checked ? (int)_resolution.Value : null;
-        preset.Settings.LinkSharpening = _sharpeningIncluded.Checked
-            ? (LinkSharpeningMode)_sharpening.SelectedItem!
-            : null;
-        preset.Settings.LocalDimming = _dimmingIncluded.Checked
-            ? (LocalDimmingMode)_dimming.SelectedItem!
-            : null;
+        preset.Settings = _settingsEditor.ReadSettings();
         return preset;
     }
 
@@ -718,17 +622,6 @@ public sealed class MainForm : Form
         }
     }
 
-    private void UpdateOptionalControlStates()
-    {
-        _fovHorizontal.Enabled = _fovIncluded.Checked;
-        _fovVertical.Enabled = _fovIncluded.Checked;
-        _aswMode.Enabled = _aswIncluded.Checked;
-        _bitrate.Enabled = _bitrateIncluded.Checked;
-        _resolution.Enabled = _resolutionIncluded.Checked;
-        _sharpening.Enabled = _sharpeningIncluded.Checked;
-        _dimming.Enabled = _dimmingIncluded.Checked;
-    }
-
     private void UpdateLaunchTargetState()
     {
         if (_launchType.SelectedItem is not LaunchType launchType)
@@ -737,6 +630,8 @@ public sealed class MainForm : Form
         }
 
         _launchTarget.Enabled = launchType != LaunchType.None;
+        _browseLaunchTarget.Enabled =
+            launchType is LaunchType.Exe or LaunchType.Shortcut;
     }
 
     private void SetEditorEnabled(bool enabled)
@@ -744,14 +639,11 @@ public sealed class MainForm : Form
         foreach (Control control in new Control[]
                  {
                      _name, _enabled, _processName, _launchType, _launchTarget,
-                     _autoApply, _restoreOnExit, _fovIncluded, _aswIncluded,
-                     _bitrateIncluded, _resolutionIncluded, _sharpeningIncluded,
-                     _dimmingIncluded
+                     _browseLaunchTarget, _autoApply, _restoreOnExit, _settingsEditor
                  })
         {
             control.Enabled = enabled;
         }
-        UpdateOptionalControlStates();
     }
 
     private void SetBusy(bool busy)
@@ -816,61 +708,6 @@ public sealed class MainForm : Form
         layout.Controls.Add(control, 1, row);
     }
 
-    private static void AddOptionalSetting(
-        TableLayoutPanel layout,
-        CheckBox include,
-        string label,
-        Control control,
-        int row)
-    {
-        include.Text = label;
-        include.AutoSize = true;
-        layout.Controls.Add(include, 0, row);
-        control.Dock = DockStyle.Fill;
-        layout.Controls.Add(control, 1, row);
-        layout.SetColumnSpan(control, 3);
-    }
-
-    private static NumericUpDown CreateDecimalInput(
-        decimal minimum,
-        int decimalPlaces,
-        decimal increment)
-    {
-        return new NumericUpDown
-        {
-            Minimum = minimum,
-            Maximum = 10,
-            DecimalPlaces = decimalPlaces,
-            Increment = increment,
-            Dock = DockStyle.Fill
-        };
-    }
-
-    private static NumericUpDown CreateIntegerInput(decimal minimum, decimal maximum)
-    {
-        return new NumericUpDown
-        {
-            Minimum = minimum,
-            Maximum = maximum,
-            DecimalPlaces = 0,
-            Increment = 1,
-            Dock = DockStyle.Fill,
-            ThousandsSeparator = true
-        };
-    }
-
-    private static ComboBox CreateEnumCombo<T>() where T : struct, Enum
-    {
-        var comboBox = new ComboBox
-        {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Dock = DockStyle.Fill
-        };
-        comboBox.Items.AddRange(Enum.GetValues<T>().Cast<object>().ToArray());
-        comboBox.SelectedIndex = 0;
-        return comboBox;
-    }
-
     private static void SelectEnumValue<T>(ComboBox comboBox, T value)
         where T : struct, Enum
     {
@@ -880,34 +717,6 @@ public sealed class MainForm : Form
             .FirstOrDefault(entry => entry.item.Equals(value))
             ?.itemIndex;
         comboBox.SelectedIndex = index ?? 0;
-    }
-
-    private static void SetNullableValue(
-        CheckBox include,
-        decimal? value,
-        NumericUpDown control)
-    {
-        include.Checked = value.HasValue;
-        if (value.HasValue)
-        {
-            control.Value = Clamp(value.Value, control);
-        }
-    }
-
-    private static void SetNullableValue(
-        CheckBox include,
-        int? value,
-        NumericUpDown control)
-    {
-        SetNullableValue(
-            include,
-            value.HasValue ? (decimal?)value.Value : null,
-            control);
-    }
-
-    private static decimal Clamp(decimal value, NumericUpDown control)
-    {
-        return Math.Clamp(value, control.Minimum, control.Maximum);
     }
 
     private static string? NullIfWhiteSpace(string value)

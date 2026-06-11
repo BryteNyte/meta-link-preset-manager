@@ -109,6 +109,35 @@ public sealed class JsonPresetRepository(AppPaths paths) : IPresetRepository
     }
 }
 
+public static class PresetStoreMigration
+{
+    public static bool EnsureDefaultHudDisabled(
+        PresetStore store,
+        string? defaultPresetId)
+    {
+        if (string.IsNullOrWhiteSpace(defaultPresetId))
+        {
+            return false;
+        }
+
+        var preset = store.Presets.FirstOrDefault(candidate =>
+            string.Equals(
+                candidate.Id,
+                defaultPresetId,
+                StringComparison.OrdinalIgnoreCase));
+        if (preset is null || preset.Settings.VisibleHud == VisibleHudMode.None)
+        {
+            return false;
+        }
+
+        preset.Settings.VisibleHud = VisibleHudMode.None;
+        preset.Settings.PerformanceHud = null;
+        preset.Settings.StereoDebugHud = null;
+        preset.Settings.LayerHud = null;
+        return true;
+    }
+}
+
 internal static class AtomicJsonWriter
 {
     public static async Task WriteAsync<T>(
@@ -157,7 +186,8 @@ internal static class InitialPresets
                         EncodeBitrateMbps = 0,
                         EncodeResolutionWidth = 0,
                         LinkSharpening = LinkSharpeningMode.Normal,
-                        LocalDimming = LocalDimmingMode.Enabled
+                        LocalDimming = LocalDimmingMode.Enabled,
+                        VisibleHud = VisibleHudMode.None
                     }
                 },
                 new OculusPreset
