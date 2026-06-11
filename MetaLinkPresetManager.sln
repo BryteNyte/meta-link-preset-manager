@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A552166E-BBF8-46C3-B71D-482A5F286ED7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaLinkPresetManager.Core", "src\MetaLinkPresetManager.Core\MetaLinkPresetManager.Core.csproj", "{28CF3DDA-06DD-4A74-A31F-0D5EFFAC059B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaLinkPresetManager.WinForms", "src\MetaLinkPresetManager.WinForms\MetaLinkPresetManager.WinForms.csproj", "{332791A9-0DA8-4207-8DC2-130B8B88A0DE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{57723574-4CC8-4561-B97F-FBE7895A5AAE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaLinkPresetManager.Tests", "tests\MetaLinkPresetManager.Tests\MetaLinkPresetManager.Tests.csproj", "{40470082-C65A-4CB6-A260-09BCA66C062E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{28CF3DDA-06DD-4A74-A31F-0D5EFFAC059B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28CF3DDA-06DD-4A74-A31F-0D5EFFAC059B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28CF3DDA-06DD-4A74-A31F-0D5EFFAC059B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28CF3DDA-06DD-4A74-A31F-0D5EFFAC059B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{332791A9-0DA8-4207-8DC2-130B8B88A0DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{332791A9-0DA8-4207-8DC2-130B8B88A0DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{332791A9-0DA8-4207-8DC2-130B8B88A0DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{332791A9-0DA8-4207-8DC2-130B8B88A0DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{40470082-C65A-4CB6-A260-09BCA66C062E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40470082-C65A-4CB6-A260-09BCA66C062E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40470082-C65A-4CB6-A260-09BCA66C062E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40470082-C65A-4CB6-A260-09BCA66C062E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{28CF3DDA-06DD-4A74-A31F-0D5EFFAC059B} = {A552166E-BBF8-46C3-B71D-482A5F286ED7}
+		{332791A9-0DA8-4207-8DC2-130B8B88A0DE} = {A552166E-BBF8-46C3-B71D-482A5F286ED7}
+		{40470082-C65A-4CB6-A260-09BCA66C062E} = {57723574-4CC8-4561-B97F-FBE7895A5AAE}
+	EndGlobalSection
+EndGlobal
