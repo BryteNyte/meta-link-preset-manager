@@ -69,6 +69,35 @@ public sealed class JsonRepositoryTests : IDisposable
         Assert.Equal("default", actual.DefaultPresetId);
     }
 
+    [Theory]
+    [InlineData(LocalDimmingMode.Default)]
+    [InlineData(LocalDimmingMode.Disabled)]
+    [InlineData(LocalDimmingMode.Enabled)]
+    public async Task LocalDimming_RoundTripsThroughJson(LocalDimmingMode mode)
+    {
+        var repository = new JsonPresetRepository(new AppPaths(_folder));
+        var expected = new PresetStore
+        {
+            Presets =
+            [
+                new OculusPreset
+                {
+                    Id = "local-dimming",
+                    Name = "Local Dimming",
+                    Settings = new OculusSettings
+                    {
+                        LocalDimming = mode
+                    }
+                }
+            ]
+        };
+
+        await repository.SaveAsync(expected);
+        var actual = await repository.LoadAsync();
+
+        Assert.Equal(mode, Assert.Single(actual.Presets).Settings.LocalDimming);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_folder))

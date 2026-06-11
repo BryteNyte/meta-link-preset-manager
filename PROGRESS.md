@@ -9,6 +9,12 @@ successfully.
 
 ## Completed
 
+- Fixed enum ComboBox reload behavior that caused persisted Local Dimming values
+  to display as Default after relaunch.
+- Updated Apply Preset and Apply + Launch to save and validate current editor
+  values before applying.
+- Added Local Dimming JSON round-trip coverage for Default, Disabled, and
+  Enabled.
 - Created the .NET 8 solution with Core, WinForms, and test projects.
 - Added JSON application settings and preset persistence.
 - Added initial Default Link and AMS2 presets.
@@ -29,7 +35,9 @@ successfully.
 ## Verification
 
 - Release build succeeds with zero warnings.
-- All 19 automated tests pass.
+- All 22 automated tests pass.
+- Local Dimming was changed to Disabled through the real WinForms UI, saved,
+  closed, reopened, and verified as Disabled in both JSON and the relaunched UI.
 - Formatting verification passes.
 - First-run JSON and log files are created successfully.
 - The WinForms application opens, responds, starts its watcher, and shuts down

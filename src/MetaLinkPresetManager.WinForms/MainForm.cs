@@ -172,7 +172,9 @@ public sealed class MainForm : Form
         layout.Controls.Add(_enabled, 1, 1);
         AddLabeledControl(layout, "Process name", _processName, 2);
 
-        _launchType.DataSource = Enum.GetValues<LaunchType>();
+        _launchType.Items.AddRange(
+            Enum.GetValues<LaunchType>().Cast<object>().ToArray());
+        _launchType.SelectedIndex = 0;
         _launchType.DropDownStyle = ComboBoxStyle.DropDownList;
         AddLabeledControl(layout, "Launch type", _launchType, 3);
         AddLabeledControl(layout, "Launch target", _launchTarget, 4);
@@ -328,7 +330,7 @@ public sealed class MainForm : Form
         _name.Text = preset.Name;
         _enabled.Checked = preset.Enabled;
         _processName.Text = preset.ProcessName ?? string.Empty;
-        _launchType.SelectedItem = preset.LaunchType;
+        SelectEnumValue(_launchType, preset.LaunchType);
         _launchTarget.Text = preset.LaunchTarget ?? string.Empty;
         _autoApply.Checked = preset.ApplyAutomaticallyWhenProcessStarts;
         _restoreOnExit.Checked = preset.RestoreDefaultPresetOnExit;
@@ -344,17 +346,20 @@ public sealed class MainForm : Form
                 _fovVertical);
         }
         _aswIncluded.Checked = preset.Settings.AswMode.HasValue;
-        _aswMode.SelectedItem = preset.Settings.AswMode ?? AswMode.Auto;
+        SelectEnumValue(_aswMode, preset.Settings.AswMode ?? AswMode.Auto);
         SetNullableValue(_bitrateIncluded, preset.Settings.EncodeBitrateMbps, _bitrate);
         SetNullableValue(
             _resolutionIncluded,
             preset.Settings.EncodeResolutionWidth,
             _resolution);
         _sharpeningIncluded.Checked = preset.Settings.LinkSharpening.HasValue;
-        _sharpening.SelectedItem =
-            preset.Settings.LinkSharpening ?? LinkSharpeningMode.Default;
+        SelectEnumValue(
+            _sharpening,
+            preset.Settings.LinkSharpening ?? LinkSharpeningMode.Default);
         _dimmingIncluded.Checked = preset.Settings.LocalDimming.HasValue;
-        _dimming.SelectedItem = preset.Settings.LocalDimming ?? LocalDimmingMode.Default;
+        SelectEnumValue(
+            _dimming,
+            preset.Settings.LocalDimming ?? LocalDimmingMode.Default);
         UpdateOptionalControlStates();
         UpdateLaunchTargetState();
     }
@@ -390,28 +395,7 @@ public sealed class MainForm : Form
 
     private async void SavePreset(object? sender, EventArgs e)
     {
-        var selected = SelectedPreset;
-        if (selected is null)
-        {
-            return;
-        }
-
-        var candidate = ReadEditor(selected);
-        var errors = PresetValidator.ValidateForSave(
-            candidate,
-            _store.Presets.Where(preset => !ReferenceEquals(preset, selected)));
-        if (errors.Count > 0)
-        {
-            ShowErrors("Preset could not be saved", errors);
-            return;
-        }
-
-        var index = _store.Presets.IndexOf(selected);
-        _store.Presets[index] = candidate;
-        await _presetRepository.SaveAsync(_store);
-        _logger.Info($"Preset saved: {candidate.Name}");
-        RefreshPresetList(candidate.Id);
-        UpdateStatus($"Saved preset: {candidate.Name}");
+        await SaveSelectedPresetAsync();
     }
 
     private void AddPreset(object? sender, EventArgs e)
@@ -495,7 +479,7 @@ public sealed class MainForm : Form
 
     private async void ApplySelectedPreset(object? sender, EventArgs e)
     {
-        var preset = SelectedPreset;
+        var preset = await SaveSelectedPresetAsync();
         if (preset is not null)
         {
             await ApplyPresetAsync(preset);
@@ -504,7 +488,7 @@ public sealed class MainForm : Form
 
     private async void ApplyAndLaunch(object? sender, EventArgs e)
     {
-        var preset = SelectedPreset;
+        var preset = await SaveSelectedPresetAsync();
         if (preset is null)
         {
             return;
@@ -594,6 +578,33 @@ public sealed class MainForm : Form
         {
             SetBusy(false);
         }
+    }
+
+    private async Task<OculusPreset?> SaveSelectedPresetAsync()
+    {
+        var selected = SelectedPreset;
+        if (selected is null)
+        {
+            return null;
+        }
+
+        var candidate = ReadEditor(selected);
+        var errors = PresetValidator.ValidateForSave(
+            candidate,
+            _store.Presets.Where(preset => !ReferenceEquals(preset, selected)));
+        if (errors.Count > 0)
+        {
+            ShowErrors("Preset could not be saved", errors);
+            return null;
+        }
+
+        var index = _store.Presets.IndexOf(selected);
+        _store.Presets[index] = candidate;
+        await _presetRepository.SaveAsync(_store);
+        _logger.Info($"Preset saved: {candidate.Name}");
+        RefreshPresetList(candidate.Id);
+        UpdateStatus($"Saved preset: {candidate.Name}");
+        return candidate;
     }
 
     private async Task LaunchAsync(OculusPreset preset)
@@ -850,12 +861,25 @@ public sealed class MainForm : Form
 
     private static ComboBox CreateEnumCombo<T>() where T : struct, Enum
     {
-        return new ComboBox
+        var comboBox = new ComboBox
         {
-            DataSource = Enum.GetValues<T>(),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Dock = DockStyle.Fill
         };
+        comboBox.Items.AddRange(Enum.GetValues<T>().Cast<object>().ToArray());
+        comboBox.SelectedIndex = 0;
+        return comboBox;
+    }
+
+    private static void SelectEnumValue<T>(ComboBox comboBox, T value)
+        where T : struct, Enum
+    {
+        var index = comboBox.Items
+            .Cast<object>()
+            .Select((item, itemIndex) => new { item, itemIndex })
+            .FirstOrDefault(entry => entry.item.Equals(value))
+            ?.itemIndex;
+        comboBox.SelectedIndex = index ?? 0;
     }
 
     private static void SetNullableValue(
