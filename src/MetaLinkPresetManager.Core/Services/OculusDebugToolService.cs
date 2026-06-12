@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Diagnostics;
 using MetaLinkPresetManager.Core.Infrastructure;
 using MetaLinkPresetManager.Core.Models;
 
@@ -20,6 +18,8 @@ public sealed class OculusDebugToolService(
     AppSettings settings,
     AppPaths paths,
     ICommandFileBuilder commandFileBuilder,
+    IVideoCodecRegistryService videoCodecRegistryService,
+    IOculusCliRunner cliRunner,
     IAppLogger logger) : IOculusDebugToolService
 {
     private readonly SemaphoreSlim _applyLock = new(1, 1);
@@ -65,9 +65,23 @@ public sealed class OculusDebugToolService(
         {
             logger.Info($"Applying preset: {preset.Name}");
             string? commandFile = null;
+            RegistryValueSnapshot? codecSnapshot = null;
 
             try
             {
+                if (preset.Settings.VideoCodec.HasValue)
+                {
+                    codecSnapshot = videoCodecRegistryService.Capture();
+                    videoCodecRegistryService.Apply(
+                        preset.Settings.VideoCodec.Value);
+                }
+
+                if (!preset.Settings.HasCliApplicableValue())
+                {
+                    logger.Info($"Preset applied successfully: {preset.Name}");
+                    return ApplyPresetResult.Ok();
+                }
+
                 if (preset.Settings.VisibleHud is not null and not VisibleHudMode.None)
                 {
                     logger.Info(
@@ -75,57 +89,41 @@ public sealed class OculusDebugToolService(
                 }
 
                 commandFile = await GenerateCommandFileAsync(preset, cancellationToken);
-                var startInfo = BuildStartInfo(commandFile);
-                using var process = Process.Start(startInfo);
-
-                if (process is null)
-                {
-                    return ApplyPresetResult.Fail(
-                        "Failed to start OculusDebugToolCLI.exe.",
-                        commandFile);
-                }
-
-                string? standardOutput = null;
-                string? standardError = null;
-                if (!settings.RequireElevationForCli)
-                {
-                    var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-                    var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-                    await process.WaitForExitAsync(cancellationToken);
-                    standardOutput = await outputTask;
-                    standardError = await errorTask;
-                }
-                else
-                {
-                    await process.WaitForExitAsync(cancellationToken);
-                }
-
-                var output = JoinOutput(standardOutput, standardError);
-                if (process.ExitCode == 0)
+                var cliResult = await cliRunner.RunAsync(
+                    settings.OculusDebugToolCliPath,
+                    commandFile,
+                    settings.RequireElevationForCli,
+                    cancellationToken);
+                if (cliResult.Succeeded)
                 {
                     logger.Info($"Preset applied successfully: {preset.Name}");
-                    return ApplyPresetResult.Ok(commandFile, output);
+                    return ApplyPresetResult.Ok(
+                        commandFile,
+                        cliResult.ProcessOutput);
                 }
 
-                var message = $"OculusDebugToolCLI.exe exited with code {process.ExitCode}.";
+                var message = cliResult.ErrorMessage
+                    ?? "OculusDebugToolCLI.exe could not apply the preset.";
                 logger.Error(message);
-                return ApplyPresetResult.Fail(message, commandFile, output);
-            }
-            catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
-            {
-                const string message = "The UAC elevation prompt was cancelled.";
-                logger.Error(message);
-                return ApplyPresetResult.Fail(message, commandFile);
+                var rollbackError = TryRestoreCodec(codecSnapshot);
+                return ApplyPresetResult.Fail(
+                    AppendRollbackError(message, rollbackError),
+                    commandFile,
+                    cliResult.ProcessOutput);
             }
             catch (OperationCanceledException)
             {
+                TryRestoreCodec(codecSnapshot);
                 logger.Info($"Preset application cancelled: {preset.Name}");
                 throw;
             }
             catch (Exception exception)
             {
                 logger.Error($"Failed to apply preset {preset.Name}", exception);
-                return ApplyPresetResult.Fail(exception.Message, commandFile);
+                var rollbackError = TryRestoreCodec(codecSnapshot);
+                return ApplyPresetResult.Fail(
+                    AppendRollbackError(exception.Message, rollbackError),
+                    commandFile);
             }
         }
         finally
@@ -134,29 +132,25 @@ public sealed class OculusDebugToolService(
         }
     }
 
-    private ProcessStartInfo BuildStartInfo(string commandFile)
+    private string? TryRestoreCodec(RegistryValueSnapshot? snapshot)
     {
-        var startInfo = new ProcessStartInfo
+        if (snapshot is null)
         {
-            FileName = settings.OculusDebugToolCliPath,
-            UseShellExecute = settings.RequireElevationForCli,
-            CreateNoWindow = !settings.RequireElevationForCli,
-            WindowStyle = ProcessWindowStyle.Hidden
-        };
-        startInfo.ArgumentList.Add("-f");
-        startInfo.ArgumentList.Add(commandFile);
-
-        if (settings.RequireElevationForCli)
-        {
-            startInfo.Verb = "runas";
-        }
-        else
-        {
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
+            return null;
         }
 
-        return startInfo;
+        try
+        {
+            videoCodecRegistryService.Restore(snapshot);
+            return null;
+        }
+        catch (Exception exception)
+        {
+            logger.Error(
+                "Failed to restore the previous Video Codec registry state",
+                exception);
+            return exception.Message;
+        }
     }
 
     private static string MakeSafeFileName(string value)
@@ -170,12 +164,12 @@ public sealed class OculusDebugToolService(
         return string.IsNullOrWhiteSpace(safeName) ? "Preset" : safeName;
     }
 
-    private static string? JoinOutput(string? output, string? error)
+    private static string AppendRollbackError(
+        string message,
+        string? rollbackError)
     {
-        var parts = new[] { output, error }
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value!.Trim());
-        var combined = string.Join(Environment.NewLine, parts);
-        return string.IsNullOrWhiteSpace(combined) ? null : combined;
+        return rollbackError is null
+            ? message
+            : $"{message}{Environment.NewLine}Video Codec rollback also failed: {rollbackError}";
     }
 }

@@ -195,8 +195,6 @@ internal static class InitialPresets
                     Id = "ams2-quest3-link",
                     Name = "AMS2 - Quest 3 Link",
                     ProcessName = "AMS2AVX.exe",
-                    LaunchType = LaunchType.SteamUrl,
-                    LaunchTarget = "steam://rungameid/1066890",
                     Settings = new OculusSettings
                     {
                         FovTanMultiplierHorizontal = 0.8m,

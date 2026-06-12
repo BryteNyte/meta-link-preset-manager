@@ -98,7 +98,8 @@ public sealed class ProcessWatcherService(
 
             foreach (var preset in presets)
             {
-                var processName = Path.GetFileNameWithoutExtension(preset.ProcessName!);
+                var processName = ProcessNameNormalizer.ForProcessLookup(
+                    preset.ProcessName!);
                 var isRunning = IsProcessRunning(processName);
                 bool wasRunning;
 

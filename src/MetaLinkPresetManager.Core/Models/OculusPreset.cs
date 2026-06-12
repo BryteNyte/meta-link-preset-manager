@@ -11,8 +11,6 @@ public sealed class OculusPreset
     public string Name { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
     public string? ProcessName { get; set; }
-    public LaunchType LaunchType { get; set; }
-    public string? LaunchTarget { get; set; }
     public bool ApplyAutomaticallyWhenProcessStarts { get; set; } = true;
     public bool RestoreDefaultPresetOnExit { get; set; } = true;
     public OculusSettings Settings { get; set; } = new();
@@ -25,8 +23,6 @@ public sealed class OculusPreset
             Name = Name,
             Enabled = Enabled,
             ProcessName = ProcessName,
-            LaunchType = LaunchType,
-            LaunchTarget = LaunchTarget,
             ApplyAutomaticallyWhenProcessStarts = ApplyAutomaticallyWhenProcessStarts,
             RestoreDefaultPresetOnExit = RestoreDefaultPresetOnExit,
             Settings = Settings.Clone()
@@ -155,14 +151,11 @@ public sealed class OculusSettings
             || LocalDimming.HasValue
             || VisibleHud.HasValue;
     }
-}
 
-public enum LaunchType
-{
-    None,
-    SteamUrl,
-    Exe,
-    Shortcut
+    public bool HasRegistryApplicableValue()
+    {
+        return VideoCodec.HasValue && VideoCodec != VideoCodecMode.Av1;
+    }
 }
 
 public enum AswMode

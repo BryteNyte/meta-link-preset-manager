@@ -11,25 +11,28 @@ public sealed class MainForm : Form
     private readonly IAppSettingsRepository _settingsRepository;
     private readonly IPresetRepository _presetRepository;
     private readonly IOculusDebugToolService _debugToolService;
-    private readonly IGameLauncher _gameLauncher;
     private readonly IProcessWatcherService _processWatcher;
     private readonly IAppLogger _logger;
     private readonly ListBox _presetList = new();
     private readonly TextBox _name = new();
     private readonly CheckBox _enabled = new();
     private readonly TextBox _processName = new();
-    private readonly ComboBox _launchType = new();
-    private readonly TextBox _launchTarget = new();
-    private readonly Button _browseLaunchTarget = new()
+    private readonly Button _browseProcess = new()
     {
-        Text = "Browse...",
-        Dock = DockStyle.Fill
+        Text = "Browse EXE",
+        AutoSize = true
+    };
+    private readonly Button _selectRunningProcess = new()
+    {
+        Text = "Running Process",
+        AutoSize = true
     };
     private readonly CheckBox _autoApply = new();
     private readonly CheckBox _restoreOnExit = new();
     private readonly PresetSettingsControl _settingsEditor = new();
     private readonly Label _status = new();
     private readonly TextBox _log = new();
+    private readonly ToolTip _toolTip = new();
     private readonly List<Button> _actionButtons = [];
     private string? _lastGeneratedCommandFile;
     private bool _closingAfterRestore;
@@ -40,7 +43,6 @@ public sealed class MainForm : Form
         IAppSettingsRepository settingsRepository,
         IPresetRepository presetRepository,
         IOculusDebugToolService debugToolService,
-        IGameLauncher gameLauncher,
         IProcessWatcherService processWatcher,
         IAppLogger logger)
     {
@@ -49,7 +51,6 @@ public sealed class MainForm : Form
         _settingsRepository = settingsRepository;
         _presetRepository = presetRepository;
         _debugToolService = debugToolService;
-        _gameLauncher = gameLauncher;
         _processWatcher = processWatcher;
         _logger = logger;
 
@@ -152,27 +153,23 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(8),
             AutoSize = true,
-            ColumnCount = 3,
-            RowCount = 6
+            ColumnCount = 2,
+            RowCount = 4
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
 
         AddLabeledControl(layout, "Name", _name, 0);
         _enabled.Text = "Preset enabled";
         _enabled.AutoSize = true;
         layout.Controls.Add(_enabled, 1, 1);
-        AddLabeledControl(layout, "Process name", _processName, 2);
-
-        _launchType.Items.AddRange(
-            Enum.GetValues<LaunchType>().Cast<object>().ToArray());
-        _launchType.SelectedIndex = 0;
-        _launchType.DropDownStyle = ComboBoxStyle.DropDownList;
-        AddLabeledControl(layout, "Launch type", _launchType, 3);
-        AddLabeledControl(layout, "Launch target", _launchTarget, 4);
-        _browseLaunchTarget.Click += BrowseLaunchTarget;
-        layout.Controls.Add(_browseLaunchTarget, 2, 4);
+        layout.Controls.Add(new Label
+        {
+            Text = "Process name",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left
+        }, 0, 2);
+        layout.Controls.Add(BuildProcessSelector(), 1, 2);
 
         var options = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
         _autoApply.Text = "Apply automatically when process starts";
@@ -181,11 +178,40 @@ public sealed class MainForm : Form
         _restoreOnExit.AutoSize = true;
         options.Controls.Add(_autoApply);
         options.Controls.Add(_restoreOnExit);
-        layout.Controls.Add(options, 1, 5);
-        layout.SetColumnSpan(options, 2);
+        layout.Controls.Add(options, 1, 3);
 
         group.Controls.Add(layout);
         return group;
+    }
+
+    private Control BuildProcessSelector()
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 3,
+            RowCount = 1,
+            Margin = Padding.Empty
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _processName.Dock = DockStyle.Fill;
+        _browseProcess.Margin = new Padding(6, 0, 0, 0);
+        _selectRunningProcess.Margin = new Padding(6, 0, 0, 0);
+        _browseProcess.Click += BrowseProcess;
+        _selectRunningProcess.Click += SelectRunningProcess;
+        layout.Controls.Add(_processName, 0, 0);
+        layout.Controls.Add(_browseProcess, 1, 0);
+        layout.Controls.Add(_selectRunningProcess, 2, 0);
+
+        const string help =
+            "Identifies the process used for automatic preset application. Selecting a process does not launch it.";
+        _toolTip.SetToolTip(_processName, help);
+        _toolTip.SetToolTip(_browseProcess, help);
+        _toolTip.SetToolTip(_selectRunningProcess, help);
+        return layout;
     }
 
     private Control BuildActionPanel()
@@ -199,8 +225,6 @@ public sealed class MainForm : Form
         };
         panel.Controls.Add(CreateActionButton("Save Preset", SavePreset));
         panel.Controls.Add(CreateActionButton("Apply Preset", ApplySelectedPreset));
-        panel.Controls.Add(CreateActionButton("Apply + Launch", ApplyAndLaunch));
-        panel.Controls.Add(CreateActionButton("Launch Only", LaunchSelectedPreset));
         panel.Controls.Add(CreateActionButton("Restore Default", RestoreDefaultPreset));
         panel.Controls.Add(CreateActionButton("Open Command File", OpenGeneratedCommandFile));
         panel.Controls.Add(CreateActionButton("Test CLI Path", TestCliPath));
@@ -233,7 +257,6 @@ public sealed class MainForm : Form
     private void WireEvents()
     {
         _presetList.SelectedIndexChanged += (_, _) => LoadSelectedPreset();
-        _launchType.SelectedIndexChanged += (_, _) => UpdateLaunchTargetState();
         _logger.LogWritten += LoggerOnLogWritten;
         _processWatcher.ProcessStarted += ProcessWatcherOnProcessStarted;
         _processWatcher.ProcessExited += ProcessWatcherOnProcessExited;
@@ -242,6 +265,7 @@ public sealed class MainForm : Form
         {
             _logger.LogWritten -= LoggerOnLogWritten;
             _processWatcher.Dispose();
+            _toolTip.Dispose();
             _logger.Info("Application exited.");
         };
     }
@@ -274,13 +298,10 @@ public sealed class MainForm : Form
         _name.Text = preset.Name;
         _enabled.Checked = preset.Enabled;
         _processName.Text = preset.ProcessName ?? string.Empty;
-        SelectEnumValue(_launchType, preset.LaunchType);
-        _launchTarget.Text = preset.LaunchTarget ?? string.Empty;
         _autoApply.Checked = preset.ApplyAutomaticallyWhenProcessStarts;
         _restoreOnExit.Checked = preset.RestoreDefaultPresetOnExit;
 
         _settingsEditor.LoadSettings(preset.Settings);
-        UpdateLaunchTargetState();
     }
 
     private OculusPreset ReadEditor(OculusPreset source)
@@ -289,8 +310,6 @@ public sealed class MainForm : Form
         preset.Name = _name.Text.Trim();
         preset.Enabled = _enabled.Checked;
         preset.ProcessName = NullIfWhiteSpace(_processName.Text);
-        preset.LaunchType = (LaunchType)_launchType.SelectedItem!;
-        preset.LaunchTarget = NullIfWhiteSpace(_launchTarget.Text);
         preset.ApplyAutomaticallyWhenProcessStarts = _autoApply.Checked;
         preset.RestoreDefaultPresetOnExit = _restoreOnExit.Checked;
         preset.Settings = _settingsEditor.ReadSettings();
@@ -387,30 +406,6 @@ public sealed class MainForm : Form
         if (preset is not null)
         {
             await ApplyPresetAsync(preset);
-        }
-    }
-
-    private async void ApplyAndLaunch(object? sender, EventArgs e)
-    {
-        var preset = await SaveSelectedPresetAsync();
-        if (preset is null)
-        {
-            return;
-        }
-
-        var applyResult = await ApplyPresetAsync(preset);
-        if (applyResult)
-        {
-            await LaunchAsync(preset);
-        }
-    }
-
-    private async void LaunchSelectedPreset(object? sender, EventArgs e)
-    {
-        var preset = SelectedPreset;
-        if (preset is not null)
-        {
-            await LaunchAsync(preset);
         }
     }
 
@@ -511,19 +506,6 @@ public sealed class MainForm : Form
         return candidate;
     }
 
-    private async Task LaunchAsync(OculusPreset preset)
-    {
-        var result = await _gameLauncher.LaunchAsync(preset);
-        if (result.Succeeded)
-        {
-            UpdateStatus($"Launch target started: {preset.Name}");
-            return;
-        }
-
-        UpdateStatus($"Launch failed: {result.ErrorMessage}");
-        ShowError(result.ErrorMessage ?? "The launch target could not be started.");
-    }
-
     private async Task<bool> RestoreDefaultAsync()
     {
         var preset = _store.Presets.FirstOrDefault(candidate =>
@@ -601,45 +583,41 @@ public sealed class MainForm : Form
         _log.AppendText(line + Environment.NewLine);
     }
 
-    private void BrowseLaunchTarget(object? sender, EventArgs e)
+    private void BrowseProcess(object? sender, EventArgs e)
     {
-        var launchType = (LaunchType)_launchType.SelectedItem!;
-        if (launchType is not (LaunchType.Exe or LaunchType.Shortcut))
-        {
-            return;
-        }
-
         using var dialog = new OpenFileDialog
         {
-            Filter = launchType == LaunchType.Exe
-                ? "Executable files|*.exe|All files|*.*"
-                : "Windows shortcuts|*.lnk|All files|*.*",
+            Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*",
             CheckFileExists = true
         };
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            _launchTarget.Text = dialog.FileName;
+            _processName.Text =
+                ProcessNameNormalizer.FromExecutablePath(dialog.FileName);
         }
     }
 
-    private void UpdateLaunchTargetState()
+    private void SelectRunningProcess(object? sender, EventArgs e)
     {
-        if (_launchType.SelectedItem is not LaunchType launchType)
+        var provider = new RunningProcessProvider(
+            new SystemProcessSnapshotSource(),
+            Environment.ProcessId);
+        using var dialog = new RunningProcessDialog(
+            new RunningProcessListModel(provider));
+        if (dialog.ShowDialog(this) == DialogResult.OK
+            && dialog.SelectedProcess is not null)
         {
-            return;
+            _processName.Text = dialog.SelectedProcess.ExecutableName;
         }
-
-        _launchTarget.Enabled = launchType != LaunchType.None;
-        _browseLaunchTarget.Enabled =
-            launchType is LaunchType.Exe or LaunchType.Shortcut;
     }
 
     private void SetEditorEnabled(bool enabled)
     {
         foreach (Control control in new Control[]
                  {
-                     _name, _enabled, _processName, _launchType, _launchTarget,
-                     _browseLaunchTarget, _autoApply, _restoreOnExit, _settingsEditor
+                     _name, _enabled, _processName, _browseProcess,
+                     _selectRunningProcess, _autoApply, _restoreOnExit,
+                     _settingsEditor
                  })
         {
             control.Enabled = enabled;

@@ -7,7 +7,9 @@ public sealed class ApplyPresetResult
     public string? CommandFilePath { get; init; }
     public string? ProcessOutput { get; init; }
 
-    public static ApplyPresetResult Ok(string commandFilePath, string? processOutput = null)
+    public static ApplyPresetResult Ok(
+        string? commandFilePath = null,
+        string? processOutput = null)
     {
         return new ApplyPresetResult
         {
@@ -28,22 +30,6 @@ public sealed class ApplyPresetResult
             CommandFilePath = commandFilePath,
             ProcessOutput = processOutput
         };
-    }
-}
-
-public sealed class LaunchResult
-{
-    public bool Succeeded { get; init; }
-    public string? ErrorMessage { get; init; }
-
-    public static LaunchResult Ok()
-    {
-        return new LaunchResult { Succeeded = true };
-    }
-
-    public static LaunchResult Fail(string errorMessage)
-    {
-        return new LaunchResult { ErrorMessage = errorMessage };
     }
 }
 

@@ -28,12 +28,16 @@ internal static class Program
                 logger.Info("Configured the default preset to disable Oculus HUD overlays.");
             }
             var commandBuilder = new OculusCommandFileBuilder();
+            var codecRegistryService = new VideoCodecRegistryService(
+                new MetaVideoCodecRegistryStore(),
+                logger);
             var debugToolService = new OculusDebugToolService(
                 settings,
                 paths,
                 commandBuilder,
+                codecRegistryService,
+                new OculusCliRunner(),
                 logger);
-            var launcher = new GameLauncher(logger);
             var watcher = new ProcessWatcherService(
                 () => store.Presets,
                 TimeSpan.FromSeconds(settings.ProcessPollingIntervalSeconds),
@@ -49,7 +53,6 @@ internal static class Program
                 settingsRepository,
                 presetRepository,
                 debugToolService,
-                launcher,
                 watcher,
                 logger));
         }

@@ -32,27 +32,6 @@ public static class PresetValidator
             errors.Add("Process name is required when automatic apply is enabled.");
         }
 
-        if (preset.LaunchType != LaunchType.None
-            && string.IsNullOrWhiteSpace(preset.LaunchTarget))
-        {
-            errors.Add("Launch target is required for the selected launch type.");
-        }
-
-        if (preset.LaunchType == LaunchType.None
-            && !string.IsNullOrWhiteSpace(preset.LaunchTarget))
-        {
-            errors.Add("Launch target must be empty when launch type is None.");
-        }
-
-        if (preset.LaunchType == LaunchType.SteamUrl
-            && !string.IsNullOrWhiteSpace(preset.LaunchTarget)
-            && !preset.LaunchTarget.StartsWith(
-                "steam://",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            errors.Add("Steam launch targets must start with steam://.");
-        }
-
         var hasHorizontal = preset.Settings.FovTanMultiplierHorizontal.HasValue;
         var hasVertical = preset.Settings.FovTanMultiplierVertical.HasValue;
         if (hasHorizontal != hasVertical)
@@ -93,7 +72,7 @@ public static class PresetValidator
     {
         var errors = new List<string>();
 
-        if (!File.Exists(cliPath))
+        if (preset.Settings.HasCliApplicableValue() && !File.Exists(cliPath))
         {
             errors.Add($"OculusDebugToolCLI.exe was not found at: {cliPath}");
         }
@@ -102,10 +81,17 @@ public static class PresetValidator
         {
             errors.Add("The preset does not include any Oculus settings.");
         }
-        else if (!preset.Settings.HasCliApplicableValue())
+        else if (!preset.Settings.HasCliApplicableValue()
+                 && !preset.Settings.HasRegistryApplicableValue())
         {
             errors.Add(
-                "The preset only contains settings whose installed-version CLI commands have not been verified.");
+                "The preset only contains settings that cannot be applied by this installed Meta runtime.");
+        }
+
+        if (preset.Settings.VideoCodec == VideoCodecMode.Av1)
+        {
+            errors.Add(
+                "AV1 video codec is preserved for JSON compatibility but is not supported by the installed Meta Debug Tool.");
         }
 
         var hasHorizontal = preset.Settings.FovTanMultiplierHorizontal.HasValue;

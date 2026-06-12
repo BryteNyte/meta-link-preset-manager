@@ -24,8 +24,6 @@ public sealed class JsonRepositoryTests : IDisposable
                     Id = "test-id",
                     Name = "Round Trip",
                     ProcessName = "game.exe",
-                    LaunchType = LaunchType.SteamUrl,
-                    LaunchTarget = "steam://rungameid/123",
                     Settings = new OculusSettings
                     {
                         FovTanMultiplierHorizontal = 0.8m,
@@ -41,9 +39,65 @@ public sealed class JsonRepositoryTests : IDisposable
 
         var preset = Assert.Single(actual.Presets);
         Assert.Equal("test-id", preset.Id);
-        Assert.Equal(LaunchType.SteamUrl, preset.LaunchType);
         Assert.Equal(0.8m, preset.Settings.FovTanMultiplierHorizontal);
         Assert.Equal(AswMode.Off, preset.Settings.AswMode);
+    }
+
+    [Fact]
+    public async Task LegacyLaunchFields_AreIgnoredWhenLoadingJson()
+    {
+        var paths = new AppPaths(_folder);
+        paths.EnsureCreated();
+        await File.WriteAllTextAsync(
+            paths.PresetsFile,
+            """
+            {
+              "presets": [
+                {
+                  "id": "legacy-launch",
+                  "name": "Legacy Launch",
+                  "launchType": "SteamUrl",
+                  "launchTarget": "steam://rungameid/123",
+                  "settings": {
+                    "videoCodec": "H265"
+                  }
+                }
+              ]
+            }
+            """);
+
+        var repository = new JsonPresetRepository(paths);
+        var preset = Assert.Single((await repository.LoadAsync()).Presets);
+
+        Assert.Equal("legacy-launch", preset.Id);
+        Assert.Equal(VideoCodecMode.H265, preset.Settings.VideoCodec);
+    }
+
+    [Fact]
+    public async Task LegacyAv1Codec_IsPreservedWhenLoadingJson()
+    {
+        var paths = new AppPaths(_folder);
+        paths.EnsureCreated();
+        await File.WriteAllTextAsync(
+            paths.PresetsFile,
+            """
+            {
+              "presets": [
+                {
+                  "id": "legacy-av1",
+                  "name": "Legacy AV1",
+                  "settings": {
+                    "videoCodec": "Av1"
+                  }
+                }
+              ]
+            }
+            """);
+
+        var repository = new JsonPresetRepository(paths);
+        var preset = Assert.Single((await repository.LoadAsync()).Presets);
+
+        Assert.Equal(VideoCodecMode.Av1, preset.Settings.VideoCodec);
     }
 
     [Fact]

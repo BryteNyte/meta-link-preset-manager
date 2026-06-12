@@ -5,15 +5,16 @@ namespace MetaLinkPresetManager.WinForms;
 
 public sealed class PresetSettingsControl : UserControl
 {
-    private readonly OptionalNumericRow _fovHorizontal =
-        new("FOV tangent multiplier", 0, 10, 2, 0.01m);
+    private readonly CheckBox _includeFov = new();
+    private readonly NumericUpDown _fovHorizontal =
+        CreateNumeric(0, 10, 2, 0.01m);
     private readonly NumericUpDown _fovVertical = CreateNumeric(0, 10, 2, 0.01m);
     private readonly OptionalEnumRow<AswMode> _asw = new("ASW mode");
 
     private readonly OptionalEnumRow<DistortionCurvatureMode> _distortion =
         new("Distortion curvature (stored only)");
     private readonly OptionalEnumRow<VideoCodecMode> _videoCodec =
-        new("Video codec (stored only)");
+        new("Video codec (registry-backed)", FormatVideoCodec);
     private readonly OptionalBooleanRow _slicedEncoding =
         new("Sliced encoding (stored only)");
     private readonly OptionalBooleanRow _dynamicBitrate =
@@ -63,14 +64,20 @@ public sealed class PresetSettingsControl : UserControl
 
     public void LoadSettings(OculusSettings settings)
     {
-        _fovHorizontal.SetValue(settings.FovTanMultiplierHorizontal);
+        _includeFov.Checked = settings.FovTanMultiplierHorizontal.HasValue;
+        if (settings.FovTanMultiplierHorizontal.HasValue)
+        {
+            _fovHorizontal.Value = Clamp(
+                settings.FovTanMultiplierHorizontal.Value,
+                _fovHorizontal);
+        }
         if (settings.FovTanMultiplierVertical.HasValue)
         {
             _fovVertical.Value = Clamp(
                 settings.FovTanMultiplierVertical.Value,
                 _fovVertical);
         }
-        _fovVertical.Enabled = settings.FovTanMultiplierHorizontal.HasValue;
+        UpdateFovState();
         _asw.SetValue(settings.AswMode);
 
         _distortion.SetValue(settings.DistortionCurvature);
@@ -103,8 +110,10 @@ public sealed class PresetSettingsControl : UserControl
     {
         var settings = new OculusSettings
         {
-            FovTanMultiplierHorizontal = _fovHorizontal.GetDecimalValue(),
-            FovTanMultiplierVertical = _fovHorizontal.Included
+            FovTanMultiplierHorizontal = _includeFov.Checked
+                ? _fovHorizontal.Value
+                : null,
+            FovTanMultiplierVertical = _includeFov.Checked
                 ? _fovVertical.Value
                 : null,
             AswMode = _asw.GetValue(),
@@ -196,27 +205,65 @@ public sealed class PresetSettingsControl : UserControl
         {
             AutoSize = true,
             Dock = DockStyle.Top,
-            ColumnCount = 3,
+            ColumnCount = 6,
             Padding = new Padding(0, 2, 0, 2)
         };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+
+        _includeFov.AutoSize = true;
+        _includeFov.Anchor = AnchorStyles.Left;
+        _includeFov.CheckedChanged += (_, _) => UpdateFovState();
+        panel.Controls.Add(_includeFov, 0, 0);
+        panel.Controls.Add(new Label
+        {
+            Text = "FOV-Tangent Multiplier",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(3, 6, 12, 3)
+        }, 1, 0);
+        panel.Controls.Add(new Label
+        {
+            Text = "Horizontal",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(3, 6, 6, 3)
+        }, 2, 0);
         _fovHorizontal.Dock = DockStyle.Fill;
-        panel.Controls.Add(_fovHorizontal, 0, 0);
+        panel.Controls.Add(_fovHorizontal, 3, 0);
         panel.Controls.Add(new Label
         {
             Text = "Vertical",
             AutoSize = true,
-            Anchor = AnchorStyles.Left
-        }, 1, 0);
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(12, 6, 6, 3)
+        }, 4, 0);
         _fovVertical.Dock = DockStyle.Fill;
-        panel.Controls.Add(_fovVertical, 2, 0);
-        _fovHorizontal.IncludeChanged += (_, _) =>
-        {
-            _fovVertical.Enabled = _fovHorizontal.Included;
-        };
+        panel.Controls.Add(_fovVertical, 5, 0);
+        UpdateFovState();
         return panel;
+    }
+
+    private void UpdateFovState()
+    {
+        _fovHorizontal.Enabled = _includeFov.Checked;
+        _fovVertical.Enabled = _includeFov.Checked;
+    }
+
+    private static string FormatVideoCodec(VideoCodecMode codec)
+    {
+        return codec switch
+        {
+            VideoCodecMode.Default => "System Default",
+            VideoCodecMode.H264 => "H.264",
+            VideoCodecMode.H265 => "H.265",
+            VideoCodecMode.Av1 => "AV1 (unsupported)",
+            _ => codec.ToString()
+        };
     }
 
     private static TabPage CreateTab(string title, params Control[] controls)
@@ -246,7 +293,7 @@ public sealed class PresetSettingsControl : UserControl
     {
         return new Label
         {
-            Text = "Fields marked \"stored only\" are saved in presets but are not sent to the CLI until their installed-version command is verified.",
+            Text = "Fields marked \"stored only\" are saved in presets but are not sent to the CLI. Video Codec is applied separately through Meta's per-user registry override.",
             AutoSize = true,
             ForeColor = SystemColors.GrayText,
             Padding = new Padding(6)
@@ -373,7 +420,9 @@ public sealed class PresetSettingsControl : UserControl
         private readonly CheckBox _include = new();
         private readonly ComboBox _value = new();
 
-        public OptionalEnumRow(string label)
+        public OptionalEnumRow(
+            string label,
+            Func<T, string>? formatter = null)
         {
             AutoSize = true;
             Dock = DockStyle.Top;
@@ -382,6 +431,17 @@ public sealed class PresetSettingsControl : UserControl
             _value.DropDownStyle = ComboBoxStyle.DropDownList;
             _value.Items.AddRange(Enum.GetValues<T>().Cast<object>().ToArray());
             _value.SelectedIndex = 0;
+            if (formatter is not null)
+            {
+                _value.FormattingEnabled = true;
+                _value.Format += (_, eventArgs) =>
+                {
+                    if (eventArgs.ListItem is T item)
+                    {
+                        eventArgs.Value = formatter(item);
+                    }
+                };
+            }
             var layout = CreateRowLayout();
             layout.Controls.Add(_include, 0, 0);
             layout.Controls.Add(_value, 1, 0);

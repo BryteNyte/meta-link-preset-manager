@@ -12,7 +12,6 @@ public sealed class PresetValidatorTests
         {
             Name = "",
             ApplyAutomaticallyWhenProcessStarts = true,
-            LaunchType = LaunchType.Exe,
             Settings = new OculusSettings
             {
                 FovTanMultiplierHorizontal = 0.8m
@@ -24,9 +23,6 @@ public sealed class PresetValidatorTests
         Assert.Contains("Preset name is required.", errors);
         Assert.Contains(
             "Process name is required when automatic apply is enabled.",
-            errors);
-        Assert.Contains(
-            "Launch target is required for the selected launch type.",
             errors);
         Assert.Contains(
             "FOV horizontal and vertical must both be included or both omitted.",
@@ -55,7 +51,7 @@ public sealed class PresetValidatorTests
     }
 
     [Fact]
-    public void ValidateForApply_RejectsPresetWithOnlyStoredSettings()
+    public void ValidateForApply_AcceptsCodecOnlyPresetWithoutCli()
     {
         var preset = new OculusPreset
         {
@@ -70,9 +66,7 @@ public sealed class PresetValidatorTests
             preset,
             typeof(PresetValidator).Assembly.Location);
 
-        Assert.Contains(
-            "The preset only contains settings whose installed-version CLI commands have not been verified.",
-            errors);
+        Assert.Empty(errors);
     }
 
     [Theory]
@@ -119,20 +113,22 @@ public sealed class PresetValidatorTests
     }
 
     [Fact]
-    public void ValidateForSave_RejectsInconsistentLaunchConfiguration()
+    public void ValidateForApply_RejectsUnsupportedAv1Codec()
     {
         var preset = new OculusPreset
         {
-            Name = "Inconsistent",
+            Name = "AV1",
             ApplyAutomaticallyWhenProcessStarts = false,
-            LaunchType = LaunchType.None,
-            LaunchTarget = "steam://rungameid/123"
+            Settings = new OculusSettings
+            {
+                VideoCodec = VideoCodecMode.Av1
+            }
         };
 
-        var errors = PresetValidator.ValidateForSave(preset, []);
+        var errors = PresetValidator.ValidateForApply(preset, "missing-cli.exe");
 
         Assert.Contains(
-            "Launch target must be empty when launch type is None.",
+            "AV1 video codec is preserved for JSON compatibility but is not supported by the installed Meta Debug Tool.",
             errors);
     }
 }

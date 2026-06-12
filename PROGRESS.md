@@ -9,6 +9,21 @@ successfully.
 
 ## Completed
 
+- Added Browse EXE and Running Process pickers for the watched process name.
+- Added a resilient running-process dialog with PID, window title, executable
+  path, refresh, and protected-process handling.
+- Kept only the executable filename in preset JSON; process selection does not
+  restore game launching.
+- Added registry-backed Video Codec application for H.264, H.265, and System
+  Default.
+- Added codec-state rollback when the CLI portion of a mixed preset fails or is
+  cancelled.
+- Added codec-only preset application without requiring or running the CLI.
+- Removed Steam URL, executable, shortcut, Apply + Launch, and Launch Only
+  functionality.
+- Kept process watching so externally launched games can still trigger presets.
+- Rebuilt the FOV-Tangent Multiplier row with explicit Horizontal and Vertical
+  labels and DPI-stable spacing.
 - Activated Performance, Stereo Debug, and Layer HUD command generation.
 - Replaced independent HUD options with one active Visible HUD selector and a
   contextual mode selector.
@@ -29,11 +44,10 @@ successfully.
   and pose injection.
 - Marked version-dependent settings as stored only instead of generating
   unverified commands.
-- Fixed Browse availability and launch type/target consistency validation.
 - Fixed enum ComboBox reload behavior that caused persisted Local Dimming values
   to display as Default after relaunch.
-- Updated Apply Preset and Apply + Launch to save and validate current editor
-  values before applying.
+- Updated Apply Preset to save and validate current editor values before
+  applying.
 - Added Local Dimming JSON round-trip coverage for Default, Disabled, and
   Enabled.
 - Created the .NET 8 solution with Core, WinForms, and test projects.
@@ -42,8 +56,6 @@ successfully.
 - Added detection for current Meta Horizon and legacy Oculus CLI paths.
 - Added Oculus command-file generation.
 - Added manual preset application with optional UAC elevation.
-- Added Steam URL, executable, and shortcut launching.
-- Added Apply + Launch and Launch Only workflows.
 - Added process polling and automatic preset application.
 - Added default-preset restoration after a watched process exits.
 - Added optional default restoration when the application exits.
@@ -56,7 +68,12 @@ successfully.
 ## Verification
 
 - Release build succeeds with zero warnings.
-- All 46 automated tests pass.
+- All 64 automated tests pass.
+- Automated tests cover process-path normalization, running-process selection
+  metadata, protected processes, refresh replacement, and watcher lookup names.
+- Automated coverage includes registry codec mapping, codec-only application,
+  mixed CLI application, rollback, legacy launch JSON, FOV command formatting,
+  HUD behavior, and preset persistence.
 - Local Dimming was changed to Disabled through the real WinForms UI, saved,
   closed, reopened, and verified as Disabled in both JSON and the relaunched UI.
 - Formatting verification passes.
@@ -76,8 +93,7 @@ C:\Program Files\Meta Horizon\Support\oculus-diagnostics\OculusDebugToolCLI.exe
   runtime.
 - Encode bitrate, resolution width, link sharpening, and local dimming command
   names may vary between Meta runtime versions and need live confirmation.
-- Game launch and external process detection should be tested with an installed
-  game.
+- External process detection should be tested with an installed game.
 - Stored-only fields require confirmed CLI setters before they can participate
   in Apply. They currently save, load, duplicate, and round-trip through JSON.
 - HUD overlays require a running PCVR application using the Meta/Oculus
@@ -111,6 +127,6 @@ Runtime settings, presets, generated command files, and logs are stored in:
 1. Apply a test preset containing only FOV and ASW settings.
 2. Confirm the changes in Oculus Debug Tool.
 3. Verify each additional CLI command individually.
-4. Test Apply + Launch with AMS2.
-5. Test automatic application and default restoration.
-6. Add import/export and packaging after live CLI verification.
+4. Test automatic application and default restoration with an externally
+   launched game.
+5. Add import/export and packaging after live CLI verification.
